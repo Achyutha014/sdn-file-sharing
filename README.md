@@ -3,7 +3,6 @@
 # Concurrent File Sharing System with SDN Control (Project 14, D1)
 
 All the D1 requirements are fulfilled here. 
-Restoring access automatically after a block expires will be completed for D2, as we are still working on that.
 
 A multi-user file-sharing application over TCP sockets, running in a Mininet network that is controlled by an
 OpenFlow SDN controller (os-ken, the maintained fork of Ryu). The controller forwards, blocks and monitors the
@@ -30,12 +29,37 @@ Ubuntu 26.04 (ARM64) VM in VirtualBox, Mininet, Open vSwitch and os-ken 4.1.1 (a
 ```
 sudo apt update
 sudo apt install -y mininet python3-os-ken git
-git clone <repository-url>
-cd <repository-folder>
+git clone  https://github.com/Achyutha014/sdn-file-sharing.git
+cd sdn-file-sharing
 sudo mn --test pingall        # optional check, should end with: 0% dropped
 ```
 If `apt update` reports a release file as "not valid yet", the VM clock is wrong. Set it, for example:
 `sudo timedatectl set-ntp false && sudo timedatectl set-time "YYYY-MM-DD HH:MM:SS"`.
+
+## Mininet setup check (before running the demo)
+
+Run this once to confirm the network and controller work together.
+
+**Terminal 1:** start the controller and leave it running
+```
+sudo python3 run_controller.py controller.py
+```
+
+**Terminal 2:** build the Mininet topology (1 switch, server `srv`, clients `h1` to `h4`)
+```
+sudo python3 topology.py -n 4
+```
+At the `mininet>` prompt, run:
+```
+pingall
+```
+Expected result: `0% dropped`.
+
+After verifying the ping, type `exit` at the `mininet>` prompt, then clean up the leftover network setup:
+```
+sudo mn -c
+```
+Then proceed with the demo below.
 
 ## Run the D1 demo
 Use two terminals, both in the project folder.
@@ -50,6 +74,7 @@ The `grep` only hides harmless `sch_htb` warnings from Mininet's link-speed sett
 because the server runs as root inside Mininet and both share the event file `/tmp/sdnfs_events.jsonl`.
 
 When finished, stop the controller with Ctrl+C and clean up with `sudo mn -c`.
+
 
 ## Expected output
 1. **Connectivity:** ping from h1 to the server, 0% packet loss.
@@ -77,7 +102,7 @@ the matching `BLOCKING` and `restoring access` lines. Per-client bandwidth sampl
 | Authenticated access | Implemented, shown in the demo |
 | SDN access policies | Blocking implemented and shown. Per-client rate limiting (OpenFlow meters) is implemented but not yet tested |
 | Monitor bandwidth | Implemented (`bandwidth.csv`, controller log) |
-| Test simultaneous transfers | Basic concurrent test done, will be completed fully by D2 |
+| Test simultaneous transfers | Automatic resotring of access is verified |
 | Evaluate transfer performance | Planned for D2 |
 
 ## Troubleshooting
