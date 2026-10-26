@@ -1,11 +1,14 @@
 # sdn-file-sharing
 # Concurrent File Sharing System with SDN Control (Project 14, D1)
+
 A multi-user file-sharing application over TCP sockets, running in a Mininet network that is controlled by an
 OpenFlow SDN controller (os-ken, the maintained fork of Ryu). The controller forwards, blocks and monitors the
 file-transfer traffic, and it reacts to events reported by the file server: after repeated failed logins the server
 notifies the controller, which blocks that host and later restores its access.
+
 ## Files
 | File | Role |
+|---|---|
 | `common.py`, `server.py`, `client.py` | Multithreaded TCP file server (AUTH, LIST, UPLOAD, DOWNLOAD, SQLite metadata, SHA-256 checksums) and the client |
 | `loadtest.py` | Transfer client used by the demo: uploads and downloads a random file and prints the speed |
 | `bruteforce.py` | Simulates an unauthorised client (wrong passwords, then a valid login) |
@@ -63,6 +66,7 @@ the matching `BLOCKING` and `restoring access` lines. Per-client bandwidth sampl
 
 ## Status against the problem statement
 | Requirement | Status |
+|---|---|
 | Concurrent TCP file transfers | Implemented (thread per client) |
 | Upload and download | Implemented, shown in the demo |
 | File metadata | Implemented (SQLite table, `LIST`) |
