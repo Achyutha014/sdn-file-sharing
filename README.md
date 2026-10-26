@@ -110,5 +110,3 @@ the matching `BLOCKING` and `restoring access` lines. Per-client bandwidth sampl
 - Leftover Mininet state or odd network errors: run `sudo mn -c`, then start again.
 - The `sch_htb: quantum of class ... is big` warnings when Mininet starts are harmless.
 
-## Limitations
-Demo users (alice, bob, carol) and their passwords are defined in `server.py`, and traffic is not encrypted.
