@@ -37,18 +37,6 @@ sudo mn --test pingall        # optional check, should end with: 0% dropped
 If `apt update` reports a release file as "not valid yet", the VM clock is wrong. Set it, for example:
 `sudo timedatectl set-ntp false && sudo timedatectl set-time "YYYY-MM-DD HH:MM:SS"`.
 
-## Mininet Setup before running the demo
-'''
-# Terminal 1: start the controller and leave it running
-sudo python3 run_controller.py controller.py
-
-# Terminal 2: set up mininet
-sudo python3 topology.py -n 4
-pingall
-'''
-after verifying the ping, type exit in mininet> and type sudo mn -c to clear the unwanted setup.
-Then proceed with the demo.
-
 ## Run the D1 demo
 Use two terminals, both in the project folder.
 ```
