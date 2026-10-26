@@ -20,7 +20,6 @@ notifies the controller, which blocks that host and later restores its access.
 | `topology.py` | Mininet topology: server `srv` (10.0.0.100) and clients `h1`-`h4` (10.0.0.1-10.0.0.4) on one Open vSwitch switch, 100 Mbit/s links |
 | `run_demo.py` | The full D1 demo (normal use, attack, block, recovery) |
 | `policy.json` | Controller policy: blocked IPs, rate limits, `auto_block_seconds` (reloaded while the controller runs) |
-| `screenshots/` | Test evidence |
 
 ## Environment
 Ubuntu 26.04 (ARM64) VM in VirtualBox, Mininet, Open vSwitch and os-ken 4.1.1 (apt package). All commands need sudo.
