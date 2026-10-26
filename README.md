@@ -102,7 +102,7 @@ the matching `BLOCKING` and `restoring access` lines. Per-client bandwidth sampl
 | Authenticated access | Implemented, shown in the demo |
 | SDN access policies | Blocking implemented and shown. Per-client rate limiting (OpenFlow meters) is implemented but not yet tested |
 | Monitor bandwidth | Implemented (`bandwidth.csv`, controller log) |
-| Test simultaneous transfers | Automatic resotring of access is verified |
+| Test simultaneous transfers | Basic concurrent test done using loadtest.py, full evaluation part is planned for D2 |
 | Evaluate transfer performance | Planned for D2 |
 
 ## Troubleshooting
