@@ -1,5 +1,9 @@
 # sdn-file-sharing
+
 # Concurrent File Sharing System with SDN Control (Project 14, D1)
+
+All the D1 requirements are fulfilled here. 
+Restoring access automatically after a block expires will be completed for D2, as we are still working on that.
 
 A multi-user file-sharing application over TCP sockets, running in a Mininet network that is controlled by an
 OpenFlow SDN controller (os-ken, the maintained fork of Ryu). The controller forwards, blocks and monitors the
@@ -51,7 +55,7 @@ When finished, stop the controller with Ctrl+C and clean up with `sudo mn -c`.
 1. **Connectivity:** ping from h1 to the server, 0% packet loss.
 2. **Normal use:** h1 (alice) uploads and downloads a 5 MB file; a line with the speed is printed for each (about 90 Mbit/s).
 3. **Attack:** h4 makes 3 wrong logins (`rejected (bad credentials)`), then a valid login times out, which means the controller has blocked h4.
-4. **Others unaffected:** h1 transfers again while h4 is blocked.
+4. **Others unaffected:** h1 transfers again while h4 is blocked. (will happen in D2)
 5. **Recovery:** after 25 s, `h4 valid login: SUCCESS (access restored)`.
 
 The controller's decisions are written to `dynamic_events.csv` (a `block` row and an `unblock` row) and its log shows
@@ -73,7 +77,7 @@ the matching `BLOCKING` and `restoring access` lines. Per-client bandwidth sampl
 | Authenticated access | Implemented, shown in the demo |
 | SDN access policies | Blocking implemented and shown. Per-client rate limiting (OpenFlow meters) is implemented but not yet tested |
 | Monitor bandwidth | Implemented (`bandwidth.csv`, controller log) |
-| Test simultaneous transfers | Planned for D2 |
+| Test simultaneous transfers | Basic concurrent test done, will be completed fully by D2 |
 | Evaluate transfer performance | Planned for D2 |
 
 ## Troubleshooting
