@@ -9,7 +9,7 @@ Multiple clients upload and download files over TCP through an OpenFlow 1.3 swit
 | Member | SRN | Files |
 |---|---|---|
 | Achyutha N Kumar | PES1UG25CS020 | `controller.py`, `server.py`, `common.py`, `run_controller.py`, `policy.json`, `run_experiment.py`, `analyze.py`, README, design document |
-| Abheek P | PES1UG25CS011 | `topology.py`, `client.py`, `run_demo.py` |
+| Abheek P | PES1UG25CS011 | `topology.py`, `client.py`, `run_demo.py`, 'diag.py' |
 | Akash Shetty | PES1UG25CS044 | `loadtest.py`, `bruteforce.py`, architecture diagram |
 
 ## Architecture
