@@ -1,112 +1,189 @@
-# sdn-file-sharing
+# Concurrent File Sharing System with SDN Control
 
-# Concurrent File Sharing System with SDN Control (Project 14, D1)
+Project 14 – SDN Socket Programming Mini Project (Computer Networks)
 
-All the D1 requirements are fulfilled here. 
+Multiple clients upload and download files over TCP through an OpenFlow 1.3 switch in Mininet. An os-ken SDN controller monitors the traffic and applies access policies. The server reports repeated failed logins to the controller, which blocks the offending client at the switch.
 
-A multi-user file-sharing application over TCP sockets, running in a Mininet network that is controlled by an
-OpenFlow SDN controller (os-ken, the maintained fork of Ryu). The controller forwards, blocks and monitors the
-file-transfer traffic, and it reacts to events reported by the file server: after repeated failed logins the server
-notifies the controller, which blocks that host and later restores its access.
+## Team and contributions
 
-## Files
-| File | Role |
+| Member | SRN | Files |
+|---|---|---|
+| Achyutha N Kumar | PES1UG25CS020 | `controller.py`, `server.py`, `common.py`, `run_controller.py`, `policy.json`, `run_experiment.py`, `analyze.py`, README, design document |
+| Abheek P | PES1UG25CS011 | `topology.py`, `client.py`, `run_demo.py` |
+| Akash Shetty | PES1UG25CS044 | `loadtest.py`, `bruteforce.py`, architecture diagram |
+
+## Architecture
+
+```
+ Clients h1-h4 (10.0.0.1-4)          File server srv (10.0.0.100:5000)
+   client.py / loadtest.py   <--TCP-->  s1 (Open vSwitch, OpenFlow 1.3)  <--TCP-->  server.py
+   bruteforce.py (attacker)                      ^
+                                                 | OpenFlow 1.3 (port 6653)
+                                      SDN controller (os-ken)
+                                      policy.json, bandwidth.csv, dynamic_events.csv
+```
+
+Server to controller path: the server appends failed-login events to `/tmp/sdnfs_events.jsonl` and the controller reads that file. This works because Mininet hosts share the filesystem with the controller.
+
+## Repository files
+
+| File | Purpose |
 |---|---|
-| `common.py`, `server.py`, `client.py` | Multithreaded TCP file server (AUTH, LIST, UPLOAD, DOWNLOAD, SQLite metadata, SHA-256 checksums) and the client |
-| `loadtest.py` | Transfer client used by the demo: uploads and downloads a random file and prints the speed |
-| `bruteforce.py` | Simulates an unauthorised client (wrong passwords, then a valid login) |
-| `controller.py` | OpenFlow 1.3 controller: learning switch, drop rules, flow-statistics bandwidth log (`bandwidth.csv`), reaction to application events (`dynamic_events.csv`) |
-| `run_controller.py` | Launcher that starts the controller (the Ubuntu os-ken package has no `osken-manager` command) |
-| `topology.py` | Mininet topology: server `srv` (10.0.0.100) and clients `h1`-`h4` (10.0.0.1-10.0.0.4) on one Open vSwitch switch, 100 Mbit/s links |
-| `run_demo.py` | The full D1 demo (normal use, attack, block, recovery) |
-| `policy.json` | Controller policy: blocked IPs, rate limits, `auto_block_seconds` (reloaded while the controller runs) |
+| `server.py` | Multithreaded TCP file server (auth, list, upload, download, SQLite metadata) |
+| `client.py` | Command-line client (`list`, `upload`, `download`) |
+| `common.py` | Shared protocol helpers and constants |
+| `controller.py` | os-ken OpenFlow 1.3 controller: learning switch, drop rules, meters, bandwidth monitoring |
+| `run_controller.py` | Starts the controller on current Python (no `osken-manager` command) |
+| `policy.json` | Blocked IPs, per-host rate limits (kbps), `auto_block_seconds` |
+| `topology.py` | Mininet topology: one switch, server and N clients, 100 Mbit/s links |
+| `run_demo.py` | D1 demo: normal use, brute-force attack, block, recovery |
+| `loadtest.py` | Upload/download load generator, reports Mbit/s |
+| `bruteforce.py` | Wrong-login attacker used in the demo |
+| `run_experiment.py` | D2 experiment: concurrent transfers under baseline, ratelimit and block scenarios, writes `results.csv` |
+| `analyze.py` | Summarises `results.csv` (mean, min, max Mbit/s, Jain's fairness index) and saves `throughput.png` |
+| `results_n1.csv`, `results_n2.csv`, `results_n4.csv` | Experiment results for 1, 2 and 4 clients |
+| `throughput_n*.png` | Throughput charts per client count |
+| `bandwidth.csv`, `dynamic_events.csv` | Controller outputs: flow bandwidth and block/unblock decisions |
+| `screenshots/` | Terminal screenshots of the runs |
+
+## Protocol (TCP, port 5000)
+
+- Each request is one JSON line: `AUTH`, `LIST`, `UPLOAD`, `DOWNLOAD`, `QUIT`.
+- Transfers send a `size` followed by exactly that many raw bytes, because TCP has no message boundaries.
+- One thread per client. A client must `AUTH` before any other command.
+- Passwords are stored as SHA-256 hashes. File names are sanitised. Only a file's owner can overwrite it.
+- Metadata (name, owner, size, SHA-256, upload time) is kept in SQLite. Uploads go to a temporary file and are renamed when complete.
+- The client verifies the SHA-256 after every download.
+- Demo users: `alice/alice123`, `bob/bob123`, `carol/carol123`.
+
+## SDN behaviour
+
+- **Learning switch:** a table-miss rule (priority 0) sends unknown packets to the controller. It installs flows with a 30 s idle timeout (priority 10 for IPs, 5 for MACs).
+- **Access policy:** priority-200 drop rules block IPs listed in `policy.json`. The file is reloaded when it changes.
+- **Rate limiting:** a host listed in `rate_limit_kbps` is limited by an OpenFlow meter with a drop band, applied to flows where that host is source or destination.
+- **Bandwidth monitoring:** flow stats are polled every 2 s and written to `bandwidth.csv`.
+- **Socket to SDN integration:** after 3 failed logins from one IP within 60 s the server writes an event. The controller reads the event file every 0.5 s, installs drop rules for that IP, and removes them after `auto_block_seconds` (20 s in the demo). Every decision is logged in `dynamic_events.csv`.
 
 ## Environment
-Ubuntu 26.04 (ARM64) VM in VirtualBox, Mininet, Open vSwitch and os-ken 4.1.1 (apt package). All commands need sudo.
 
-## Setup
+Ubuntu 26.04 (ARM64) VM, Mininet, Open vSwitch, os-ken 4.1.1 (apt package), Python 3.
+
 ```
 sudo apt update
 sudo apt install -y mininet python3-os-ken git
-git clone  https://github.com/Achyutha014/sdn-file-sharing.git
+git clone https://github.com/Achyutha014/sdn-file-sharing.git
 cd sdn-file-sharing
-sudo mn --test pingall        # optional check, should end with: 0% dropped
 ```
-If `apt update` reports a release file as "not valid yet", the VM clock is wrong. Set it, for example:
-`sudo timedatectl set-ntp false && sudo timedatectl set-time "YYYY-MM-DD HH:MM:SS"`.
 
-## Mininet setup check (before running the demo)
+Run every command below from this folder. Use a new terminal for each numbered terminal.
 
-Run this once to confirm the network and controller work together.
+## Run: D1 demo
 
-**Terminal 1:** start the controller and leave it running
+Terminal 1 (controller, leave running):
 ```
 sudo python3 run_controller.py controller.py
 ```
 
-**Terminal 2:** build the Mininet topology (1 switch, server `srv`, clients `h1` to `h4`)
+Terminal 2 (optional connectivity check):
 ```
 sudo python3 topology.py -n 4
-```
-At the `mininet>` prompt, run:
-```
-pingall
-```
-Expected result: `0% dropped`.
-
-After verifying the ping, type `exit` at the `mininet>` prompt, then clean up the leftover network setup:
-```
+mininet> pingall
+mininet> exit
 sudo mn -c
 ```
-Then proceed with the demo below.
+Close this terminal before the next step. The topology and the demo cannot run at the same time.
 
-## Run the D1 demo
-Use two terminals, both in the project folder.
+Terminal 3:
 ```
-# Terminal 1: start the controller and leave it running
-sudo python3 run_controller.py controller.py
-
-# Terminal 2: run the demo (takes about a minute)
-sudo python3 run_demo.py 2>&1 | grep -v sch_htb
+sudo python3 run_demo.py
 ```
-The `grep` only hides harmless `sch_htb` warnings from Mininet's link-speed settings. The controller needs `sudo`
-because the server runs as root inside Mininet and both share the event file `/tmp/sdnfs_events.jsonl`.
+The demo prints five numbered stages and ends with `h4 valid login: SUCCESS (access restored)`. Then check the controller's decisions:
+```
+cat dynamic_events.csv
+```
 
-When finished, stop the controller with Ctrl+C and clean up with `sudo mn -c`.
+## Run: D2 experiments
 
+With the controller still running in terminal 1, in a new terminal:
+```
+sudo python3 run_experiment.py --clients 4 --size-mb 20
+cp results.csv results_n4.csv
+sudo mn -c
+cp results_n4.csv results.csv
+python3 analyze.py
+mv throughput.png throughput_n4.png
+```
+Repeat with `--clients 2` and `--clients 1`, changing the file names to match. `run_experiment.py` overwrites `results.csv` and `policy.json` each time. After the last run, restore `policy.json`:
+```
+echo '{"blocked_ips": [], "rate_limit_kbps": {}, "auto_block_seconds": 20}' > policy.json
+```
 
-## Expected output
-1. **Connectivity:** ping from h1 to the server, 0% packet loss.
-2. **Normal use:** h1 (alice) uploads and downloads a 5 MB file; a line with the speed is printed for each (about 90 Mbit/s).
-3. **Attack:** h4 makes 3 wrong logins (`rejected (bad credentials)`), then a valid login times out, which means the controller has blocked h4.
-4. **Others unaffected:** h1 transfers again while h4 is blocked. (will happen in D2)
-5. **Recovery:** after 25 s, `h4 valid login: SUCCESS (access restored)`.
+Scenarios run by `run_experiment.py`:
 
-The controller's decisions are written to `dynamic_events.csv` (a `block` row and an `unblock` row) and its log shows
-the matching `BLOCKING` and `restoring access` lines. Per-client bandwidth samples are in `bandwidth.csv`.
+- **baseline:** no policy, all clients transfer at the same time.
+- **ratelimit:** h1 is capped at 5 Mbit/s by a meter.
+- **block:** h4 is blocked by a priority-200 drop rule.
 
-## How it works
-- **Protocol:** each request is one JSON line (`AUTH`, `LIST`, `UPLOAD`, `DOWNLOAD`, `QUIT`). Uploads and downloads send a `size`, then exactly that many raw bytes in 64 KB chunks, and the receiver verifies the SHA-256.
-- **Concurrency:** the server starts one thread per client connection.
-- **Controller:** a table-miss rule sends unknown packets to the controller, which installs per-pair IP flows (priority 10) and MAC flows (priority 5) with a 30 s idle timeout. Drop rules for blocked hosts use priority 200.
-- **Socket-SDN integration:** the server counts failed logins per client IP. After 3 failures within 60 s it appends an event to `/tmp/sdnfs_events.jsonl`. The controller reads the file every 0.5 s, installs drop rules for that IP, and removes them after `auto_block_seconds` (20 s in the demo).
-- **Monitoring:** the controller polls flow statistics every 2 s and logs the Mbit/s of each client-server pair.
+Each client uploads and then downloads a file of `--size-mb` MB. Metrics are throughput per client (Mbit/s) and Jain's fairness index.
 
-## Status against the problem statement
-| Requirement | Status |
+## Results
+
+Setup: one 100 Mbit/s link to the server shared by all clients, 20 MB per transfer.
+
+4 clients:
+
+| Scenario | Op | OK | Failed | Avg Mbit/s | Min | Max | Jain |
+|---|---|---|---|---|---|---|---|
+| baseline | download | 4 | 0 | 40.87 | 37.40 | 44.18 | 0.996 |
+| baseline | upload | 4 | 0 | 30.41 | 23.63 | 37.76 | 0.953 |
+| block | download | 3 | 1 | 40.64 | 36.02 | 46.02 | 0.990 |
+| block | upload | 3 | 1 | 33.12 | 29.26 | 36.14 | 0.993 |
+| ratelimit | download | 4 | 0 | 59.04 | 4.82 | 92.82 | 0.757 |
+| ratelimit | upload | 4 | 0 | 31.63 | 5.00 | 57.84 | 0.740 |
+
+Other client counts (baseline, average per client):
+
+| Clients | Download Mbit/s | Upload Mbit/s |
+|---|---|---|
+| 1 | __ | __ |
+| 2 | about 48 | about 48 |
+| 4 | 40.87 | 30.41 |
+
+D1 demo (h1, 5 MB, with the controller running):
+
+| Test | Result |
 |---|---|
-| Concurrent TCP file transfers | Implemented (thread per client) |
-| Upload and download | Implemented, shown in the demo |
-| File metadata | Implemented (SQLite table, `LIST`) |
-| Authenticated access | Implemented, shown in the demo |
-| SDN access policies | Blocking implemented and shown. Per-client rate limiting (OpenFlow meters) is implemented but not yet tested |
-| Monitor bandwidth | Implemented (`bandwidth.csv`, controller log) |
-| Test simultaneous transfers | Basic concurrent test done using loadtest.py, full evaluation part is planned for D2 |
-| Evaluate transfer performance | Planned for D2 |
+| pingall | 0% dropped, 20/20 received |
+| h1 upload / download | about 93 / 86 Mbit/s |
+| h4 makes 3 wrong logins, then a valid login | 3 rejected, valid login times out (blocked) |
+| h1 transfers while h4 is blocked | about 95 / 95 Mbit/s |
+| h4 logs in after 25 s | succeeds; `dynamic_events.csv` has a block row and an unblock row |
+
+Observations:
+
+- Without a policy, clients share the server link fairly (Jain close to 1). Per-client throughput falls as clients are added.
+- Blocking h4 does not affect the other clients' throughput.
+- The meter holds h1 to about 5 Mbit/s and the remaining clients use the freed bandwidth. Jain drops because the split is uneven by design.
+- The n=8 run failed and is not reported.
+
+## Design decisions
+
+- JSON header line plus raw bytes: the size field marks file boundaries on the TCP stream.
+- One thread per client: simple and enough for a few clients.
+- Events pass through a file in `/tmp` because Mininet hosts share the controller's filesystem, so no extra network path is needed.
+- Drop rules use priority 200 so they override all learned flows. They are removed after a timeout.
+- The controller runs through `run_controller.py` on os-ken, the maintained fork of Ryu.
+
+## Limitations
+
+- Single switch topology.
+- No encryption (TLS); passwords are sent in the clear inside the emulated network.
+- Password hashes are unsalted and the user list is hardcoded.
+- The file-based event channel only works inside Mininet.
+- Rate limits come from `policy.json`, not from automatic congestion detection.
 
 ## Troubleshooting
-- `osken-manager: command not found`: expected. Use `run_controller.py` as shown above.
-- The controller will not stop with Ctrl+C: run `pkill -9 -f run_controller.py` from another terminal.
-- Leftover Mininet state or odd network errors: run `sudo mn -c`, then start again.
-- The `sch_htb: quantum of class ... is big` warnings when Mininet starts are harmless.
 
+- Run `sudo mn -c` after every Mininet run, and before starting another.
+- The `sch_htb: quantum of class ... is big` warnings are harmless.
+- If apt reports a release file as "not valid yet", the VM clock is wrong. Set it with `timedatectl set-time`.
